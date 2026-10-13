@@ -5,6 +5,10 @@ const TILE = 20;
 const WALL_COLOR = '#2121ff';
 const DOOR_COLOR = '#ffb8ff';
 const DOT_COLOR = '#ffb897';
+const DOT_RADIUS = 2.5;
+const POWER_RADIUS = 6;
+const FRIGHT_COLOR = '#2121ff';
+const BLINK_COLOR = '#ffffff';
 
 function cellCenter( x, y ) {
   return { cx: x * TILE + TILE / 2, cy: y * TILE + TILE / 2 };
@@ -66,14 +70,16 @@ function drawDoor( ctx, grid ) {
   ctx.stroke();
 }
 
+// Dibuja dots (2) y power pellets (4); el pellet es mas grande.
 function drawDots( ctx, grid ) {
   ctx.fillStyle = DOT_COLOR;
   for ( let y = 0; y < grid.length; y++ ) {
     for ( let x = 0; x < grid[ 0 ].length; x++ ) {
-      if ( grid[ y ][ x ] !== 2 ) continue;
+      const tile = grid[ y ][ x ];
+      if ( tile !== 2 && tile !== 4 ) continue;
       const { cx, cy } = cellCenter( x, y );
       ctx.beginPath();
-      ctx.arc( cx, cy, 2.5, 0, Math.PI * 2 );
+      ctx.arc( cx, cy, tile === 4 ? POWER_RADIUS : DOT_RADIUS, 0, Math.PI * 2 );
       ctx.fill();
     }
   }
@@ -98,15 +104,14 @@ function drawPacman( ctx, p, frame ) {
   ctx.fill();
 }
 
-function drawGhost( ctx, g ) {
+function drawGhost( ctx, g, bodyColor ) {
   const { cx, cy } = cellCenter( g.x, g.y );
   const r = TILE / 2 - 1;
-  const top = cy - r;
   const bottom = cy + r;
   const left = cx - r;
   const right = cx + r;
 
-  ctx.fillStyle = g.color;
+  ctx.fillStyle = bodyColor;
   ctx.beginPath();
   ctx.arc( cx, cy - 1, r, Math.PI, 0, false ); // cabeza
   ctx.lineTo( right, bottom );
@@ -144,6 +149,13 @@ function drawHUD( ctx, game, W ) {
   ctx.fillText( 'VIDAS ' + game.lives, W * TILE - 8, 4 );
 }
 
+// Color del cuerpo segun el modo asustado: azul y, al final, parpadeando a blanco.
+function ghostBodyColor( game, frame ) {
+  if ( game.frightTimer <= 0 ) return null;
+  const blinking = game.frightTimer <= FRIGHT_BLINK_FRAMES;
+  return blinking && Math.floor( frame / 8 ) % 2 === 0 ? BLINK_COLOR : FRIGHT_COLOR;
+}
+
 function draw( ctx, game, frame ) {
   const grid = game.grid;
   const W = grid[ 0 ].length;
@@ -156,7 +168,8 @@ function draw( ctx, game, frame ) {
   drawDoor( ctx, grid );
   drawDots( ctx, grid );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g ) => drawGhost( ctx, g ) );
+  const scared = ghostBodyColor( game, frame );
+  game.ghosts.forEach( ( g ) => drawGhost( ctx, g, scared || g.color ) );
   drawHUD( ctx, game, W );
 }
 
