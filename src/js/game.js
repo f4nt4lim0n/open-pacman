@@ -1,6 +1,6 @@
 // game.js
 // Estado y reglas. Depende de globals de maze.js: MAZE, TUNNEL_ROW,
-// PACMAN_START, GHOST_STARTS.
+// PACMAN_START, GHOST_STARTS, PEN_EXIT.
 
 const DIRS = {
   left: { x: -1, y: 0 },
@@ -161,9 +161,11 @@ function decideGhost( game, g ) {
   );
   const choices = options.length ? options : [ OPPOSITE[ g.dir ] ];
 
-  // clyde huye cuando esta a CLYDE_RADIUS o menos; el resto persigue.
-  const flee = g.kind === 'clyde' && manhattan( g, pacman ) <= CLYDE_RADIUS;
-  const target = flee ? pacman : ghostTarget( game, g );
+  // Mientras sigue dentro del pen su unico objetivo es salir por la puerta,
+  // asi que la huida de clyde queda desactivada.
+  const leaving = !g.released;
+  const flee = !leaving && g.kind === 'clyde' && manhattan( g, pacman ) <= CLYDE_RADIUS;
+  const target = leaving ? PEN_EXIT : ( flee ? pacman : ghostTarget( game, g ) );
 
   let best = choices[ 0 ];
   let bestDist = flee ? -Infinity : Infinity;
