@@ -51,6 +51,8 @@ const MAZE = MAZE_STR.map( ( row ) => row.split( '' ).map( parseTile ) );
 
 const TUNNEL_ROW = 14;
 const PACMAN_START = { x: 13, y: 23 };
+// Celda objetivo durante la salida: justo encima de la puerta (cols 13-14, fila 12).
+const PEN_EXIT = { x: 13, y: 11 };
 const GHOST_STARTS = [
   { x: 13, y: 14, kind: 'blinky', color: '#ff0000', releaseAt: 0 },
   { x: 12, y: 14, kind: 'pinky', color: '#ffb8ff', releaseAt: 90 },
@@ -61,4 +63,5 @@ const GHOST_STARTS = [
 window.MAZE = MAZE;
 window.TUNNEL_ROW = TUNNEL_ROW;
 window.PACMAN_START = PACMAN_START;
+window.PEN_EXIT = PEN_EXIT;
 window.GHOST_STARTS = GHOST_STARTS;
