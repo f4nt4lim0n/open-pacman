@@ -14,6 +14,12 @@ const DIR_ORDER = [ 'up', 'left', 'down', 'right' ];
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+const DOT_SCORE = 10;
+const POWER_PELLET_SCORE = 50;
+const FRIGHT_FRAMES = 420;       // ~7 s a 60 fps
+const FRIGHT_BLINK_FRAMES = 120; // ultimos ~2 s parpadeando
+const GHOST_SCORES = [ 200, 400, 800, 1600 ];
+
 const AMBUSH_LEAD = 4;   // pinky: celdas por delante de Pacman
 const FLANK_LEAD = 2;    // inky: pivote por delante de Pacman
 const CLYDE_RADIUS = 8;  // clyde: umbral de cercania a Pacman
@@ -25,15 +31,17 @@ function createGame() {
   // La celda de inicio de Pacman arranca sin dot.
   grid[ PACMAN_START.y ][ PACMAN_START.x ] = 0;
 
-  let dots = 0;
-  for ( const row of grid ) for ( const v of row ) if ( v === 2 ) dots++;
+  let pellets = 0;
+  for ( const row of grid ) for ( const v of row ) if ( v === 2 || v === 4 ) pellets++;
 
   return {
     state: 'start',
     score: 0,
     lives: 3,
-    dotsRemaining: dots,
+    pelletsRemaining: pellets,
     elapsed: 0,
+    frightTimer: 0, // frames restantes de modo asustado (0 = inactivo)
+    ghostsEaten: 0, // fantasmas comidos con el power pellet actual
     grid,
     pacman: {
       x: PACMAN_START.x,
@@ -92,6 +100,25 @@ function wrapTunnel( a, width ) {
   }
 }
 
+// Come el tile bajo el actor (debe estar alineado a celda). El power pellet
+// ademas activa el modo asustado para los 4 fantasmas.
+function eatPellet( game, pos ) {
+  const tile = game.grid[ pos.y ][ pos.x ];
+  if ( tile === 2 ) {
+    game.grid[ pos.y ][ pos.x ] = 0;
+    game.pelletsRemaining--;
+    game.score += DOT_SCORE;
+    return;
+  }
+  if ( tile === 4 ) {
+    game.grid[ pos.y ][ pos.x ] = 0;
+    game.pelletsRemaining--;
+    game.score += POWER_PELLET_SCORE;
+    game.frightTimer = FRIGHT_FRAMES;
+    game.ghostsEaten = 0;
+  }
+}
+
 function movePacman( game ) {
   const p = game.pacman;
   const grid = game.grid;
@@ -106,12 +133,8 @@ function movePacman( game ) {
       p.dir = p.nextDir;
       p.nextDir = null;
     }
-    // Comer dot.
-    if ( grid[ p.y ][ p.x ] === 2 ) {
-      grid[ p.y ][ p.x ] = 0;
-      game.score += 10;
-      game.dotsRemaining--;
-    }
+    // Comer dot o power pellet.
+    eatPellet( game, p );
     // Si no puede seguir, se detiene en la celda.
     if ( !canMove( grid, p.x, p.y, p.dir, 'pacman' ) ) return;
   }
@@ -162,9 +185,12 @@ function decideGhost( game, g ) {
   const choices = options.length ? options : [ OPPOSITE[ g.dir ] ];
 
   // Mientras sigue dentro del pen su unico objetivo es salir por la puerta,
-  // asi que la huida de clyde queda desactivada.
+  // asi que la huida de clyde queda desactivada. Con el modo asustado activo
+  // todas las personalidades huyen de Pacman.
   const leaving = !g.released;
-  const flee = !leaving && g.kind === 'clyde' && manhattan( g, pacman ) <= CLYDE_RADIUS;
+  const scared = game.frightTimer > 0;
+  const shy = g.kind === 'clyde' && manhattan( g, pacman ) <= CLYDE_RADIUS;
+  const flee = !leaving && ( scared || shy );
   const target = leaving ? PEN_EXIT : ( flee ? pacman : ghostTarget( game, g ) );
 
   let best = choices[ 0 ];
@@ -210,6 +236,8 @@ function resetPositions( game ) {
   p.dir = 'left';
   p.nextDir = null;
   game.elapsed = 0;
+  game.frightTimer = 0;
+  game.ghostsEaten = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
@@ -224,6 +252,7 @@ function collides( a, b ) {
 
 function update( game ) {
   game.elapsed++;
+  if ( game.frightTimer > 0 ) game.frightTimer--;
   movePacman( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
@@ -239,7 +268,7 @@ function update( game ) {
     }
   }
 
-  if ( game.dotsRemaining <= 0 ) game.state = 'won';
+  if ( game.pelletsRemaining <= 0 ) game.state = 'won';
 }
 
 window.createGame = createGame;
