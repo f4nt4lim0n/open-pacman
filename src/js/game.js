@@ -250,22 +250,44 @@ function collides( a, b ) {
   return Math.abs( a.x - b.x ) < 0.5 && Math.abs( a.y - b.y ) < 0.5;
 }
 
+// Un fantasma es comestible con el modo asustado activo y ya fuera del pen.
+function isEdible( game, g ) {
+  return game.frightTimer > 0 && g.released;
+}
+
+// Pacman se come al fantasma y este reaparece en el pen, listo para salir.
+function eatGhost( game, g, index ) {
+  game.score += GHOST_SCORES[ Math.min( game.ghostsEaten, GHOST_SCORES.length - 1 ) ];
+  game.ghostsEaten++;
+  g.x = GHOST_STARTS[ index ].x;
+  g.y = GHOST_STARTS[ index ].y;
+  g.dir = 'up';
+  g.released = false;
+}
+
 function update( game ) {
   game.elapsed++;
   if ( game.frightTimer > 0 ) game.frightTimer--;
   movePacman( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
-  for ( const g of game.ghosts ) {
-    if ( collides( game.pacman, g ) ) {
-      game.lives--;
-      if ( game.lives <= 0 ) {
-        game.state = 'lost';
-        return;
-      }
-      resetPositions( game );
-      break;
+  for ( let i = 0; i < game.ghosts.length; i++ ) {
+    const g = game.ghosts[ i ];
+    if ( !collides( game.pacman, g ) ) continue;
+
+    // En modo asustado Pacman se lo come; el bucle sigue por si toca a otro.
+    if ( isEdible( game, g ) ) {
+      eatGhost( game, g, i );
+      continue;
     }
+
+    game.lives--;
+    if ( game.lives <= 0 ) {
+      game.state = 'lost';
+      return;
+    }
+    resetPositions( game );
+    break;
   }
 
   if ( game.pelletsRemaining <= 0 ) game.state = 'won';
